@@ -15,7 +15,7 @@ function dialog_menu() {
   arr="$(dialog --no-items --clear \
     --backtitle "$1" \
     --title "$2" \
-    --menu "$3" 10 40 3 \
+    --menu "$3" 25 35 3 \
     "${!4}" --output-fd 1)"
 }
 
