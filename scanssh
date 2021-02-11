@@ -7,7 +7,7 @@ localip=`ip -o -f inet addr show | awk '/scope global/ {print $4}'`
 ip=()
 for subnet in ${localip[@]}; do
   hostip=`echo $subnet | cut -f1 -d"/"`
-  ip+=($(nmap -p 22 ${subnet} -oG - --exclude $hostip | awk '/ssh///$/{print $2}'))
+  ip+=($(nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}'))
 done
 
 # Create interative dialog menu for detected IPs and run ssh command
