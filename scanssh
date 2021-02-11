@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Scan host IP
+localip=`ip -o -f inet addr show | awk '/scope global/ {print $4}'`
+
+# Use nmap to scan all IPs in subnet for port 22(ssh)
+ip=()
+for subnet in ${localip[@]}; do
+  hostip=`echo $subnet | cut -f1 -d"/"`
+  ip+=($(nmap -p 22 ${subnet} -oG - --exclude $hostip | awk '/ssh///$/{print $2}'))
+done
+
+# Create interative dialog menu for detected IPs and run ssh command
+function dialog_menu() {
+  arr="$(dialog --no-items --clear \
+    --backtitle "$1" \
+    --title "$2" \
+    --menu "$3" 10 40 3 \
+    "${!4}" --output-fd 1)"
+}
+
+dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
+if [ -z "$arr" ]; then
+  clear
+  exit 0
+fi
+clear
+read -p "Enter username for $arr: " username
+ssh $username@$arr
