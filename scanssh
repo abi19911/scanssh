@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Scan host IP
-localip=`ip -o -f inet addr show | awk '/scope global/ {print $4}'`
+localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
 
 # Use nmap to scan all IPs in subnet for port 22(ssh)
 ip=()
