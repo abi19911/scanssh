@@ -1,5 +1,5 @@
 # scanssh
-simple shell script to detect local IPs and connect via ssh
+simple shell script to detect local IPs (using nmap) and connect via ssh
 
 ```
 Options: cmd [-r] refresh IP list
