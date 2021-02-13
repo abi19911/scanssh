@@ -52,23 +52,19 @@ run() {
 
   # Create interative dialog menu for detected IPs and run ssh command
   dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
-  if [ -z "$arr" ]; then
-    clear
-    exit 0
-  fi
+  [ -z "$arr" ] && clear ; exit 0
   clear
   read -p "Enter username for $arr: " username
   ssh $username@$arr
 }
 
-temp="/tmp/scanssh"
+# Looks for tmp folder (termux support)
+[ -d "/tmp/" ] && temp="/tmp/scanssh"
+[ -d "/data/data/com.termux/files/usr/tmp" ] && temp="/data/data/com.termux/files/usr/tmp/scanssh"
+
 # Runs script directly if no arguments is passed
 if [ $# -eq 0 ]; then
-  if [ -f $temp ]; then
-    run
-  else
-    scan_ip
-  fi
+  [ -f $temp ] && run || scan_ip
 fi
 
 # Runs script with arguments
