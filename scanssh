@@ -35,7 +35,7 @@ scan_ip() {   # Finds IPs in local network
   localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
 
   # Use nmap to scan all IPs in subnet for port 22
-  echo "Local subnets found: $localip"
+  echo "Local subnets found: ${localip[@]}"
   for subnet in ${localip[@]}; do
     hostip=`echo $subnet | cut -f1 -d"/"`
     nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}' > $temp
