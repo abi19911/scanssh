@@ -29,13 +29,16 @@ arr="$(dialog --no-items --clear \
 "${!4}" --output-fd 1)"
 }
 
-# Finds IPs in local network
-scan_ip() {   # Finds IPs in local network
-  # Get host IPs from active network cards
+# Get host IPs from active network cards
+local_ip() {
   localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
+  [ -z ${localip[@]} ] && echo "No subnet detected, are you connected?" && exit 1 || echo "Local subnets found: ${localip[@]}"
+}
 
+# Finds IPs in local network
+scan_ip() {
+  rm $temp 2> /dev/null
   # Use nmap to scan all IPs in subnet for port 22
-  echo "Local subnets found: ${localip[@]}"
   for subnet in ${localip[@]}; do
     hostip=`echo $subnet | cut -f1 -d"/"`
     nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}' > $temp
@@ -50,13 +53,16 @@ run() {
     ip+=($line)
   done < $temp
 
+  [ -z "$ip" ] && echo "No IPs found in local network" && exit 1
+
   # Create interative dialog menu for detected IPs and run ssh command
   dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
-  [ -z "$arr" ] && clear ; exit 0
+  [ -z "$arr" ] && clear && exit 0
   clear
-  read -p "Enter username for $arr: " username
-  ssh $username@$arr
-}
+  read -p "Enter username for $arr: " username 2> /dev/tty
+  ssh $username@$arr 2> /dev/tty
+  exit 0
+} 2> /dev/null
 
 # Looks for tmp folder (termux support)
 [ -d "/tmp/" ] && temp="/tmp/scanssh"
@@ -64,13 +70,20 @@ run() {
 
 # Runs script directly if no arguments is passed
 if [ $# -eq 0 ]; then
-  [ -f $temp ] && run || scan_ip
+  if [ -f $temp ]; then
+    local_ip
+    run
+  else
+    local_ip
+    scan_ip
+  fi
 fi
 
 # Runs script with arguments
 while getopts "rdh" opt; do
   case ${opt} in
     r)
+      local_ip
       scan_ip
       exit 0
       ;;
