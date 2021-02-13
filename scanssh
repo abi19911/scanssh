@@ -91,9 +91,13 @@ while getopts "rdh" opt; do
       rm $temp 2> /dev/null && echo "Deleted IP list" || echo "IP list already empty"
       ;;
     h|?)
-      echo "Usage: cmd [-r] refresh IP list"
-      echo "           [-d] delete IP list"
-      echo "           [-h] help menu"
+      echo "Running scanssh without any arguments; it will look for cached local IPs in tmp file and"
+      echo "run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one."
+      echo ""
+      echo "Usage: scanssh <no arguments>"
+      echo "         \____ [-r] refresh IP list"
+      echo "          \___ [-d] delete IP list"
+      echo "           \__ [-h] help menu"
       exit 0
       ;;
   esac
