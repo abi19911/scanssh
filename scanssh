@@ -1,29 +1,91 @@
 #!/bin/bash
 
-# Scan host IP
-localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
-
-# Use nmap to scan all IPs in subnet for port 22(ssh)
-ip=()
-for subnet in ${localip[@]}; do
-  hostip=`echo $subnet | cut -f1 -d"/"`
-  ip+=($(nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}'))
-done
-
-# Create interative dialog menu for detected IPs and run ssh command
-function dialog_menu() {
-  arr="$(dialog --no-items --clear \
-    --backtitle "$1" \
-    --title "$2" \
-    --menu "$3" 25 35 3 \
-    "${!4}" --output-fd 1)"
+### Functions
+# Loading text animation
+show_loading() {
+  mypid=$!
+  loadingText=$1
+  echo -ne "$loadingText\r"
+  while kill -0 $mypid 2>/dev/null; do
+    echo -ne "$loadingText.\r"
+    sleep 0.5
+    echo -ne "$loadingText..\r"
+    sleep 0.5
+    echo -ne "$loadingText...\r"
+    sleep 0.5
+    echo -ne "\r\033[K"
+    echo -ne "$loadingText\r"
+    sleep 0.5
+  done
+  echo -ne "\r\033[K"
 }
 
-dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
-if [ -z "$arr" ]; then
+# Interactive dialog menu
+dialog_menu() {
+arr="$(dialog --no-items --clear \
+--backtitle "$1" \
+--title "$2" \
+--menu "$3" 25 35 3 \
+"${!4}" --output-fd 1)"
+}
+
+# Finds IPs in local network
+scan_ip() {   # Finds IPs in local network
+  # Get host IPs from active network cards
+  localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
+
+  # Use nmap to scan all IPs in subnet for port 22
+  echo "Local subnets found: $localip"
+  for subnet in ${localip[@]}; do
+    hostip=`echo $subnet | cut -f1 -d"/"`
+    nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}' > $temp
+  done & show_loading "Scanning for ssh ports in local network" > /dev/tty
+  run
+}
+
+# Main script
+run() {
+  ip=()
+  while IFS= read -r line; do
+    ip+=($line)
+  done < $temp
+
+  # Create interative dialog menu for detected IPs and run ssh command
+  dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
+  if [ -z "$arr" ]; then
+    clear
+    exit 0
+  fi
   clear
-  exit 0
+  read -p "Enter username for $arr: " username
+  ssh $username@$arr
+}
+
+temp="/tmp/scanssh"
+# Runs script directly if no arguments is passed
+if [ $# -eq 0 ]; then
+  if [ -f $temp ]; then
+    run
+  else
+    scan_ip
+  fi
 fi
-clear
-read -p "Enter username for $arr: " username
-ssh $username@$arr
+
+# Runs script with arguments
+while getopts "rdh" opt; do
+  case ${opt} in
+    r)
+      scan_ip
+      exit 0
+      ;;
+    d)
+      rm $temp 2> /dev/null && echo "Deleted IP list" || echo "IP list already empty"
+      ;;
+    h|?)
+      echo "Usage: cmd [-r] refresh IP list"
+      echo "           [-d] delete IP list"
+      echo "           [-h] help menu"
+      exit 0
+      ;;
+  esac
+done
