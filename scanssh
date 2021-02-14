@@ -25,7 +25,7 @@ dialog_menu() {
 arr="$(dialog --no-items --clear \
 --backtitle "$1" \
 --title "$2" \
---menu "$3" 25 35 3 \
+--menu "$3" 15 35 3 \
 "${!4}" --output-fd 1)"
 }
 
@@ -38,25 +38,37 @@ local_ip() {
 # Finds IPs in local network
 scan_ip() {
   rm $temp 2> /dev/null
-  # Use nmap to scan all IPs in subnet for port 22
+
+  # Use fping to look for active hosts in network
   for subnet in ${localip[@]}; do
-    hostip=`echo $subnet | cut -f1 -d"/"`
-    nmap -p 22 ${subnet} -oG - -T5 --exclude $hostip | awk '/ssh///$/{print $2}' > $temp
-  done & show_loading "Scanning for ssh ports in local network" > /dev/tty
+    fping -ag $subnet 2>/dev/null | tr '\r\n' ' ' >>$temp
+  done & show_loading "Scanning for IPs in local network" > /dev/tty
+  echo "" >>$temp
+
+  # Delete host ip from tmp file
+  for host in ${localip[@]}; do
+    hostip=`echo $host | cut -f1 -d"/"`
+    sed -i "s/${hostip} //g" $temp
+  done
+
+  # Use nmap to scan all active hosts for port 22
+  fping_ip=($(awk 'NR==1' $temp))
+  for fil_ip in ${fping_ip[@]}; do
+    if [[ $(nmap -p22 $fil_ip | grep "open") ]]; then
+      echo $fil_ip
+    fi
+  done | tr '\r\n' ' ' >>$temp & show_loading "Looking for open ssh ports in local network" > /dev/tty
   run
 }
 
 # Main script
 run() {
-  ip=()
-  while IFS= read -r line; do
-    ip+=($line)
-  done < $temp
-
-  [ -z "$ip" ] && echo "No IPs found in local network" && exit 1
+  # Read line 2 of temp file
+  nmap_ip=($(awk 'NR==2' $temp))
+  [ -z "$nmap_ip" ] && echo "No IPs found in local network" && exit 1
 
   # Create interative dialog menu for detected IPs and run ssh command
-  dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" ip[@]
+  dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" nmap_ip[@]
   [ -z "$arr" ] && clear && exit 0
   clear
   read -p "Enter username for $arr: " username 2> /dev/tty
@@ -85,19 +97,20 @@ while getopts "rdh" opt; do
     r)
       local_ip
       scan_ip
-      exit 0
       ;;
     d)
       rm $temp 2> /dev/null && echo "Deleted IP list" || echo "IP list already empty"
       ;;
     h|?)
-      echo "Running scanssh without any arguments; it will look for cached local IPs in tmp file and"
-      echo "run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one."
-      echo ""
-      echo "Usage: scanssh <no arguments>"
-      echo "         \____ [-r] refresh IP list"
-      echo "          \___ [-d] delete IP list"
-      echo "           \__ [-h] help menu"
+      cat << EOM
+Running scanssh without any arguments; it will look for cached local IPs in tmp file and
+run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one.
+
+Usage: scanssh <no arguments>
+         \____ [-r] refresh IP list
+          \___ [-d] delete IP list
+           \__ [-h] help menu
+EOM
       exit 0
       ;;
   esac
