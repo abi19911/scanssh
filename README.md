@@ -9,9 +9,6 @@ One liners: <br />
 ```
 Linux:
 wget https://raw.githubusercontent.com/abi19911/scanssh/main/scanssh && chmod +x scanssh && sudo mv scanssh /usr/local/bin
-
-Termux:
-wget https://raw.githubusercontent.com/abi19911/scanssh/main/scanssh && chmod +x scanssh && mv scanssh /data/data/com.termux/files/usr/bin
 ```
 
 ## Description
