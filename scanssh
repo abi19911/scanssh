@@ -22,7 +22,7 @@ show_loading() {
 
 # Interactive dialog menu
 dialog_menu() {
-arr="$(dialog --no-items --clear \
+arr="$(dialog --cursor-off-label --no-items --clear \
 --backtitle "$1" \
 --title "$2" \
 --menu "$3" 15 35 3 \
