@@ -1,5 +1,5 @@
 # scanssh
-simple shell script to detect local IPs (using nmap) and connect via ssh
+simple shell script to detect local IPs (using nmap & fping) and connect via ssh
 
 ## Download
 `wget https://raw.githubusercontent.com/abi19911/scanssh/main/scanssh` <br />
@@ -19,8 +19,13 @@ wget https://raw.githubusercontent.com/abi19911/scanssh/main/scanssh && chmod +x
 Running scanssh without any arguments; it will look for cached local IPs in tmp file and
 run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one.
 
-Usage: scanssh <no arguments> 
+Usage: scanssh <no arguments>
          \____ [-r] refresh IP list
           \___ [-d] delete IP list
            \__ [-h] help menu
+```
+## Dependencies
+```
+fping -> To ping all hosts in subnet
+nmap  -> To check for available ssh port 
 ```
