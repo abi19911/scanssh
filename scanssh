@@ -32,7 +32,7 @@ arr="$(dialog --cursor-off-label --no-items --clear \
 # Get host IPs from active network cards
 local_ip() {
   localip=($(ip -o -f inet addr show | awk '/scope global/ {print $4}'))
-  [ -z ${localip[@]} ] && echo "No subnet detected, are you connected?" && exit 1 || echo "Local subnets found: ${localip[@]}"
+  [ -z ${localip[0]} ] && echo "No subnet detected, are you connected?" && exit 1 || echo "Local subnets found: ${localip[@]}"
 }
 
 # Finds IPs in local network
@@ -75,6 +75,12 @@ run() {
   ssh $username@$arr 2> /dev/tty
   exit 0
 } 2> /dev/null
+
+# Check for dependencies
+dep=0
+! which fping &> /dev/null && echo "fping is not installed" && dep=$(($dep+1))
+! which nmap &> /dev/null && echo "nmap is not installed" && dep=$(($dep+1))
+(( $dep >= 1 )) && echo "quitting..." && exit 1
 
 # Looks for tmp folder (termux support)
 [ -d "/tmp/" ] && temp="/tmp/scanssh"
