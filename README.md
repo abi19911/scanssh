@@ -25,6 +25,6 @@ Usage: scanssh <no arguments>
 ```
 ## Dependencies
 ```
-fping -> To ping all hosts in subnet
-nmap  -> To check for available ssh port
+dialog -> Interactive menu
+nmap   -> Check for available ssh ports
 ```
