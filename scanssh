@@ -1,6 +1,19 @@
 #!/bin/bash
 
-### Functions
+### Functions ###
+# Help menu
+help() {
+  cat << EOM
+Running scanssh without any arguments will look for cached local IPs in tmp file and run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one.
+Usage: scanssh <no arguments>
+        \____ [-p] specify port (EXAMPLE: scanssh -p 20022,20122,20222)
+         |___ [-r] refresh IP list
+         |___ [-d] delete IP list
+         |___ [-h] help menu
+EOM
+exit 0
+}
+
 # Loading text animation
 show_loading() {
   mypid=$!
@@ -22,11 +35,11 @@ show_loading() {
 
 # Interactive dialog menu
 dialog_menu() {
-arr="$(dialog --cursor-off-label --no-items --clear \
---backtitle "$1" \
---title "$2" \
---menu "$3" 15 35 3 \
-"${!4}" --output-fd 1)"
+arr["$1"]="$(dialog --cursor-off-label --clear \
+--backtitle "$2" \
+--title "$3" \
+--menu "$4" 15 35 3 \
+"${!5}" --output-fd 1)"
 }
 
 # Get host IPs from active network cards
@@ -39,9 +52,9 @@ local_ip() {
 scan_ip() {
   rm $temp 2> /dev/null
 
-  # Use fping to look for active hosts in network
+  # Use dialog to look for active hosts in network
   for subnet in ${localip[@]}; do
-    fping -ag $subnet 2>/dev/null | tr '\r\n' ' ' >>$temp
+    nmap -T5 -oG - $subnet | awk '/Status: Up/ {print $2}' | awk '!x[$0]++' | tr '\r\n' ' ' >>$temp
   done & show_loading "Scanning for IPs in local network" > /dev/tty
   echo "" >>$temp
 
@@ -52,42 +65,32 @@ scan_ip() {
   done
 
   # Use nmap to scan all active hosts for port 22
-  fping_ip=($(awk 'NR==1' $temp))
-  for fil_ip in ${fping_ip[@]}; do
-    if [[ $(nmap -p22 $fil_ip | grep "open") ]]; then
-      echo $fil_ip
-    fi
+  ping_ip=($(awk 'NR==1' $temp))
+  for fil_ip in ${ping_ip[@]}; do
+    hostip=`echo $fil_ip | cut -f1 -d"/"`
+    [[ $(nmap -p22 -T4 -oG - $fil_ip | grep "open") ]] && echo "$fil_ip" && echo "22"
+    [ ! -z $p ] && [[ $(nmap -p$p -T4 -oG - $fil_ip | grep "open") ]] && echo "$fil_ip" && echo "$p"
   done | tr '\r\n' ' ' >>$temp & show_loading "Looking for open ssh ports in local network" > /dev/tty
   run
 }
 
-# Main script
+# Interpret data using dialog_menu then make ssh connection
 run() {
   # Read line 2 of temp file
   nmap_ip=($(awk 'NR==2' $temp))
-  [ -z "$nmap_ip" ] && echo "No IPs found in local network" && exit 1
+  [ -z "${#nmap_ip[@]}" ] && echo "No IPs found in local network" && exit 1
 
   # Create interative dialog menu for detected IPs and run ssh command
-  dialog_menu "scanssh" "scanssh" "Select an IP to connect to:" nmap_ip[@]
-  [ -z "$arr" ] && clear && exit 0
+  dialog_menu scanssh "scanssh" "scanssh" "Select an IP to connect to:" nmap_ip[@]
+  [ -z "${arr[scanssh]}" ] && clear && exit 0
   clear
-  read -p "Enter username for $arr: " username 2> /dev/tty
-  ssh $username@$arr 2> /dev/tty
+  read -p "Enter username for ${arr[scanssh]}: " username 2> /dev/tty
+  ssh $username@${arr[scanssh]} 2> /dev/tty
   exit 0
 } 2> /dev/null
 
-# Check for dependencies
-dep=0
-! which fping &> /dev/null && echo "fping is not installed" && dep=$(($dep+1))
-! which nmap &> /dev/null && echo "nmap is not installed" && dep=$(($dep+1))
-(( $dep >= 1 )) && echo "quitting..." && exit 1
-
-# Looks for tmp folder (termux support)
-[ -d "/tmp/" ] && temp="/tmp/scanssh"
-[ -d "/data/data/com.termux/files/usr/tmp" ] && temp="/data/data/com.termux/files/usr/tmp/scanssh"
-
-# Runs script directly if no arguments is passed
-if [ $# -eq 0 ]; then
+# Main script
+run_default() {
   if [ -f $temp ]; then
     local_ip
     run
@@ -95,29 +98,28 @@ if [ $# -eq 0 ]; then
     local_ip
     scan_ip
   fi
-fi
+}
+
+### Initiate ###
+# Check for dependencies
+dep=0
+! which dialog &> /dev/null && echo "dialog is not installed" && dep=$(($dep+1))
+! which nmap &> /dev/null && echo "nmap is not installed" && dep=$(($dep+1))
+(( $dep >= 1 )) && echo "quitting..." && exit 1
+
+# Looks for tmp folder (Termux Support)
+[ -d "/tmp/" ] && temp="/tmp/scanssh"
+[ -d "/data/data/com.termux/files/usr/tmp" ] && temp="/data/data/com.termux/files/usr/tmp/scanssh"
+
+# Runs script directly if no arguments is passed
+[ $# -eq 0 ] && run_default
 
 # Runs script with arguments
-while getopts "rdh" opt; do
-  case ${opt} in
-    r)
-      local_ip
-      scan_ip
-      ;;
-    d)
-      rm $temp 2> /dev/null && echo "Deleted IP list" || echo "IP list already empty"
-      ;;
-    h|?)
-      cat << EOM
-Running scanssh without any arguments; it will look for cached local IPs in tmp file and
-run the script using that data. If tmp file doesn't exist, the script will scan for local IPs and create one.
-
-Usage: scanssh <no arguments>
-         \____ [-r] refresh IP list
-          \___ [-d] delete IP list
-           \__ [-h] help menu
-EOM
-      exit 0
-      ;;
+while getopts "p:rdh" o; do
+  case $o in
+    p) p=${OPTARG}; local_ip; scan_ip ;;
+    r) local_ip; scan_ip ;;
+    d) rm $temp 2> /dev/null && echo "Deleted IP list" || echo "IP list already empty" ;;
+    h|?) help ;;
   esac
 done
