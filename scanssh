@@ -54,7 +54,7 @@ scan_ip() {
 
   # Use dialog to look for active hosts in network
   for subnet in ${localip[@]}; do
-    nmap -T5 -oG - $subnet | awk '/Status: Up/ {print $2}' | awk '!x[$0]++' | tr '\r\n' ' ' >>$temp
+    nmap -T3 -oG - $subnet | awk '/Status: Up/ {print $2}' | awk '!x[$0]++' | tr '\r\n' ' ' >>$temp
   done & show_loading "Scanning for IPs in local network" > /dev/tty
   echo "" >>$temp
 
@@ -84,8 +84,13 @@ run() {
   dialog_menu scanssh "scanssh" "scanssh" "Select an IP to connect to:" nmap_ip[@]
   [ -z "${arr[scanssh]}" ] && clear && exit 0
   clear
+
+  # Get port number from dialog input
+  nmap_port=$(for i in ${!nmap_ip[@]}; do [[ "${arr[scanssh]}" == "${nmap_ip[$i]}" ]] && j=$(($i+1)) && echo "${nmap_ip[$j]}"; done)
+
+  # Finally, login via ssh
   read -p "Enter username for ${arr[scanssh]}: " username 2> /dev/tty
-  ssh $username@${arr[scanssh]} 2> /dev/tty
+  ssh -p$nmap_port $username@${arr[scanssh]} 2> /dev/tty
   exit 0
 } 2> /dev/null
 
